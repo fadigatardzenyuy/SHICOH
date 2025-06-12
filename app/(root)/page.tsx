@@ -1,33 +1,12 @@
-// import CompanionBuilder from '@/components/form/TutorBuilder'
-import HomePage from '@/components/HomePage'
-import { getAllCompanions, getUserSessions, getUserCompanions } from '@/lib/actions/aiCompanion.action'
-import { auth } from '@clerk/nextjs/server'
-import { redirect } from 'next/navigation'
-import React from 'react'
+import LandingPage from "@/components/landingPage";
+import React from "react";
 
-// only want to show you the form if you are sign in or created account
-
-
-const page = async() => {
-    const {userId}=await auth()
-
-    if(!userId) redirect('/sign-in')
-
-    const tutors=await getUserCompanions(userId)
-    console.log("here is the list of tutors data: ", tutors)
-
-    const recentSessionTutors=await getUserSessions(userId)
-
-    console.log("here is the recent tutoring sessions data: ", recentSessionTutors)
+const page = () => {
   return (
-    <>
-    <HomePage
-    tutors={tutors}
-    recentSessions={recentSessionTutors}
+    <div>
+      <LandingPage />
+    </div>
+  );
+};
 
-    />
-    </>
-  )
-}
-
-export default page
+export default page;
