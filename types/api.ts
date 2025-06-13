@@ -20,6 +20,18 @@ export interface FileUploadProps {
   isProcessing: boolean;
 }
 
+export interface CameraProps {
+  onCapture: (file: File) => void;
+  isProcessing: boolean;
+  onClose: () => void;
+}
+
+export interface CameraState {
+  isOpen: boolean;
+  isSupported: boolean;
+  error: string | null;
+}
+
 export interface ImagePreviewProps {
   src: string;
   alt: string;

@@ -13,6 +13,33 @@ export const convertFileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+export const dataURLToFile = (dataURL: string, filename: string): File => {
+  const arr = dataURL.split(',');
+  const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  return new File([u8arr], filename, { type: mime });
+};
+
+export const checkCameraSupport = (): boolean => {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+};
+
+export const getCameraConstraints = (facingMode: 'user' | 'environment' = 'environment'): MediaStreamConstraints => {
+  return {
+    video: {
+      facingMode: facingMode,
+      width: { ideal: 1920 },
+      height: { ideal: 1080 }
+    },
+    audio: false
+  };
+};
+
 export const validateImageFile = (file: File): { isValid: boolean; error?: string } => {
   const maxSize = 10 * 1024 * 1024; // 10MB
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp'];

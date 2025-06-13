@@ -69,7 +69,7 @@ export const generateQuiz = async (params: GenerateQuizParams) => {
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
-    model: "gemini-2.0-flash", // Or "gemini-1.5-pro-latest" for potentially higher quality but slower/more expensive
+    model: "gemini-2.5-flash-preview-05-20", // Or "gemini-2.0-flash" for potentially higher quality but slower/more expensive
     // Or "gemini-pro" if you don't need the 1.5 features / JSON mode is sufficient on older models.
     // Check Gemini documentation for the best model for JSON output.
   });

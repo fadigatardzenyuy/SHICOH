@@ -1,45 +1,65 @@
-// This is the complete, self-contained, and corrected component file.
-// It uses the new single-call architecture to avoid rate limits.
+// This is the complete, self-contained, and final component file.
+// It includes all features, fixes, and UI enhancements.
 
 "use client"
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Upload, Camera, FileText, User, Clock, CheckCircle, AlertCircle, X,
-  Send, Heart, Stethoscope, Eye, Trash2, Wand2, Info
+  Send, Heart, Stethoscope, Eye, Trash2, Wand2, Info, CheckCircle2
 } from 'lucide-react';
+import { processAndSaveConsultation } from '@/lib/actions/admin.action';
+// import { processAndSaveConsultation } from './actions'; // Ensure this path is correct
 
-// --- TYPES (Updated for the new API response) ---
+// --- TYPES ---
 interface ConsultationRecord {
-  id: string; documentTitle: string; recordType: string; uploadDate: string;
+  id: string;
+  documentTitle: string;
+  recordType: string;
+  uploadDate: string;
   status: 'processing' | 'completed' | 'error';
-  originalText?: string; formattedData?: ProcessedConsultation;
-  imageUrl?: string; errorMessage?: string;
+  formattedData?: ProcessedConsultation;
+  imageUrl?: string;
+  errorMessage?: string;
 }
 
 interface ProcessedConsultation {
-  patientEmail: string | null; patientPhoneNumber: string | null;
-  doctorName: string | null; complaint: string | null;
-  consultationItems: ConsultationItem[]; summaryNotes: string;
+  patientEmail: string | null;
+  patientPhoneNumber: string | null;
+  doctorName: string | null;
+  complaint: string | null;
+  consultationItems: ConsultationItem[];
+  summaryNotes: string;
 }
 
 interface ConsultationItem {
-  labWork: string; labResults: string | null;
-  drugs: string | null; fee: number | null;
+  labWork: string;
+  labResults: string | null;
+  drugs: string | null;
+  fee: number | null;
   enrichedInfo?: {
-    correctedName: string; dosageSchedule: string; duration: string; advice: string;
+    correctedName: string;
+    dosageSchedule: string;
+    duration: string;
+    advice: string;
   } | null;
 }
 
 interface ProcessingState {
-  isProcessing: boolean; error: string | null; progress: number; message: string;
+  isProcessing: boolean;
+  error: string | null;
+  progress: number;
+  message: string;
 }
 
 interface SendModalState {
-  isOpen: boolean; record: ConsultationRecord | null; patientEmail: string;
-  emailBody: string; isSending: boolean;
+  isOpen: boolean;
+  record: ConsultationRecord | null;
+  patientEmail: string;
+  emailBody: string;
+  isSending: boolean;
 }
 
-// --- API CLIENT (Simplified) ---
+// --- API CLIENT ---
 class ApiClient {
   private static async request<TResponsePayload>(endpoint: string, options: RequestInit): Promise<TResponsePayload> {
     try {
@@ -53,19 +73,16 @@ class ApiClient {
     } catch (error) { console.error('API Client Error:', error); throw error; }
   }
 
-  static async extractText(imageData: string): Promise<string> {
-    const response = await this.request<{ text: string }>('/api/extract-text', { method: 'POST', body: JSON.stringify({ imageData }) });
-    return response.text;
+  static async processConsultation(imageData: string): Promise<ProcessedConsultation> {
+    return this.request<ProcessedConsultation>('/api/process-consultation', { method: 'POST', body: JSON.stringify({ imageData }) });
   }
 
-  static async processConsultation(text: string): Promise<ProcessedConsultation> {
-    return this.request<ProcessedConsultation>('/api/process-consultation', { method: 'POST', body: JSON.stringify({ text }) });
+  static async polishSummary(text: string): Promise<{ polishedText: string }> {
+    return this.request<{ polishedText: string }>('/api/polish-summary', { method: 'POST', body: JSON.stringify({ text }) });
   }
-
-  static async polishSummary(text: string): Promise<{ polishedText: string }> { return this.request<{ polishedText: string }>('/api/polish-summary', { method: 'POST', body: JSON.stringify({ text }) }); }
 }
 
-// --- UTILITY & CAMERA COMPONENTS (Full versions included) ---
+// --- UTILITY & CAMERA COMPONENTS ---
 const convertFileToBase64 = (file: File): Promise<string> => { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onloadend = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Failed to convert file to base64.')); reader.onerror = () => reject(new Error('Failed to read file.')); reader.readAsDataURL(file); }); };
 const validateImageFile = (file: File): { isValid: boolean; error?: string } => { const maxSize = 10 * 1024 * 1024; const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/pdf', 'image/webp']; if (!allowedTypes.includes(file.type)) { return { isValid: false, error: 'Invalid file type. Please upload an image or PDF file.' }; } if (file.size > maxSize) { return { isValid: false, error: 'File size too large. Please upload a file smaller than 10MB.' }; } return { isValid: true }; };
 const CameraCapture = ({ onCapture, onClose, isProcessing }) => {
@@ -94,6 +111,7 @@ export default function DoctorAdminDashboard() {
   const [sendModalState, setSendModalState] = useState<SendModalState>({ isOpen: false, record: null, patientEmail: '', emailBody: '', isSending: false });
   const [editableSummary, setEditableSummary] = useState('');
   const [isPolishing, setIsPolishing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setIsVisible(true); }, []);
@@ -102,21 +120,18 @@ export default function DoctorAdminDashboard() {
   const processRecord = async (file: File, imageUrl: string | null = null) => {
     const validation = validateImageFile(file);
     if (!validation.isValid) { setProcessingState({ isProcessing: false, error: validation.error, progress: 0, message: '' }); return; }
-    setProcessingState({ isProcessing: true, error: null, progress: 10, message: 'Preparing document...' });
+    setProcessingState({ isProcessing: true, error: null, progress: 10, message: 'Uploading document...' });
     const recordId = `REC-${Date.now()}`;
     try {
       const base64 = imageUrl || await convertFileToBase64(file);
       const newRecord: ConsultationRecord = { id: recordId, documentTitle: "Processing...", recordType: file.type, uploadDate: new Date().toLocaleString(), status: 'processing', imageUrl: base64 };
       setRecords(prev => [newRecord, ...prev]);
 
-      setProcessingState(prev => ({ ...prev, progress: 40, message: 'Extracting text from document...' }));
-      const extractedText = await ApiClient.extractText(base64);
-
-      setProcessingState(prev => ({ ...prev, progress: 80, message: 'AI is processing the consultation...' }));
-      const formattedData = await ApiClient.processConsultation(extractedText);
-
-      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'completed', documentTitle: `Consultation by ${formattedData.doctorName || 'Unknown'}`, originalText: extractedText, formattedData } : r));
-      setProcessingState({ isProcessing: false, error: null, progress: 0, message: '' });
+      setProcessingState(prev => ({ ...prev, progress: 50, message: 'AI is processing the document...' }));
+      const formattedData = await ApiClient.processConsultation(base64);
+      
+      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'completed', documentTitle: `Consultation by ${formattedData.doctorName || 'Unknown'}`, formattedData } : r));
+      setProcessingState({ isProcessing: false, error: null, progress: 100, message: '' });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An unknown AI error occurred.";
       setProcessingState({ isProcessing: false, error: errorMessage, progress: 0, message: '' });
@@ -149,21 +164,28 @@ export default function DoctorAdminDashboard() {
   const handleSendEmail = async () => {
     if (!sendModalState.record || !sendModalState.patientEmail) return;
     setSendModalState(prev => ({ ...prev, isSending: true }));
-    const dataForServerAction = {
-      user_id: null,
-      doctor_name: sendModalState.record.formattedData?.doctorName,
+    const payload = {
+      doctor_name: sendModalState.record.formattedData?.doctorName || null,
       patient_email: sendModalState.patientEmail,
-      patient_phone_number: sendModalState.record.formattedData?.patientPhoneNumber,
-      complaint: sendModalState.record.formattedData?.complaint,
-      consultation_items: sendModalState.record.formattedData?.consultationItems,
+      patient_phone_number: sendModalState.record.formattedData?.patientPhoneNumber || null,
+      complaint: sendModalState.record.formattedData?.complaint || null,
+      consultation_items: sendModalState.record.formattedData?.consultationItems || [],
       summary_notes: editableSummary,
-      total_fee: sendModalState.record.formattedData?.consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0)
+      total_fee: sendModalState.record.formattedData?.consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0) || 0,
+      image_url: sendModalState.record.imageUrl || null,
     };
-    console.log("--- DATA READY FOR SUPABASE SERVER ACTION (insert into 'consultations') ---");
-    console.log(JSON.stringify(dataForServerAction, null, 2));
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setSendModalState({ isOpen: false, record: null, patientEmail: '', emailBody: '', isSending: false });
-    setShowRecordModal(false);
+    try {
+      const result = await processAndSaveConsultation(payload);
+      if (!result.success) throw new Error(result.error);
+      setSendModalState({ isOpen: false, record: null, patientEmail: '', emailBody: '', isSending: false });
+      setShowRecordModal(false);
+      setShowSuccessModal(true);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred.";
+      console.error("Failed to save or send consultation:", errorMessage);
+      setProcessingState(prev => ({...prev, isProcessing: false, error: errorMessage}));
+      setSendModalState(prev => ({ ...prev, isSending: false }));
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { processRecord(file); } if (e.target) { e.target.value = ''; } };
@@ -183,10 +205,13 @@ export default function DoctorAdminDashboard() {
         <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleFileSelect} disabled={processingState.isProcessing}/>
         {showCamera && (<CameraCapture onCapture={processRecord} onClose={() => setShowCamera(false)} isProcessing={processingState.isProcessing}/>)}
         {showRecordModal && selectedRecord && (
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in"><div className="bg-gray-800 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto border border-gray-700"><div className="sticky top-0 bg-gray-800/80 backdrop-blur-md p-6 border-b border-gray-700 z-10"><div className="flex items-center justify-between"><h3 className="text-xl font-bold">Consultation Details</h3><button onClick={() => setShowRecordModal(false)} className="p-2 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button></div></div><div className="p-6">{selectedRecord.status !== 'completed' || !selectedRecord.formattedData ? (<div className="text-center py-12">{selectedRecord.status === 'processing' ? <><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div><p>AI is processing the document...</p></> : <><AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" /><h4 className="text-xl font-bold mb-2">Processing Failed</h4><p className="text-red-300 max-w-md mx-auto">{selectedRecord.errorMessage}</p></>}</div>) : (<div className="grid grid-cols-1 lg:grid-cols-5 gap-8"><div className="lg:col-span-2 space-y-4"><h4 className="font-semibold">Original Document</h4>{selectedRecord.imageUrl && <img src={selectedRecord.imageUrl} alt="Consultation document" className="w-full rounded-xl border border-gray-600"/>}</div><div className="lg:col-span-3 space-y-6"><div className="bg-gray-700/50 rounded-xl p-4 space-y-3"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><p className="text-sm text-gray-400">Patient Email</p><p className="font-medium truncate">{selectedRecord.formattedData.patientEmail || 'N/A'}</p></div><div><p className="text-sm text-gray-400">Doctor</p><p className="font-medium">{selectedRecord.formattedData.doctorName || 'N/A'}</p></div></div><div><p className="text-sm text-gray-400">Complaint</p><p className="font-medium">{selectedRecord.formattedData.complaint || 'N/A'}</p></div></div><div><h4 className="font-semibold mb-3">Consultation & Prescription</h4><div className="rounded-xl border border-gray-700 overflow-hidden"><table className="w-full text-sm text-left"><thead className="bg-gray-700/50"><tr className="text-xs text-gray-300 uppercase"><th scope="col" className="px-4 py-3">Lab Work / Drug</th><th scope="col" className="px-4 py-3">Lab Result / Advice</th><th scope="col" className="px-4 py-3 text-right">Fee (XAF)</th></tr></thead><tbody>{selectedRecord.formattedData.consultationItems.map((item, index) => (<tr key={index} className="bg-gray-800 border-b border-gray-700 last:border-b-0"><td className="px-4 py-3 font-medium align-top">{item.enrichedInfo ? item.enrichedInfo.correctedName : item.labWork}</td><td className="px-4 py-3 align-top text-gray-300">{item.labResults}{item.enrichedInfo && (<div className="space-y-2 mt-1"><p className="text-xs"><span className="font-semibold text-gray-400">Schedule: </span>{item.enrichedInfo.dosageSchedule}</p><p className="text-xs"><span className="font-semibold text-gray-400">Duration: </span>{item.enrichedInfo.duration}</p><div className="flex items-start gap-2 text-xs text-cyan-300 p-2 bg-cyan-500/10 rounded-md border border-cyan-500/20"><Info className="w-4 h-4 flex-shrink-0 mt-0.5" /><span>{item.enrichedInfo.advice}</span></div></div>)}</td><td className="px-4 py-3 text-right font-mono align-top">{item.fee != null ? item.fee.toLocaleString() : 'Free'}</td></tr>))}<tr className="bg-gray-700/50 font-bold"><td colSpan={2} className="px-4 py-3 text-right">Total</td><td className="px-4 py-3 text-right font-mono">{selectedRecord.formattedData.consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0).toLocaleString()}</td></tr></tbody></table></div></div><div><div className="flex justify-between items-center mb-3"><h4 className="font-semibold">Editable Consultation Summary</h4><button onClick={handlePolishSummary} disabled={isPolishing} className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 disabled:opacity-50 transition-all">{isPolishing ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> : <Wand2 className="w-3 h-3" />}Polish with AI</button></div><textarea value={editableSummary} onChange={(e) => setEditableSummary(e.target.value)} rows={6} className="w-full p-4 bg-gray-900/70 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm text-gray-300 leading-relaxed"></textarea></div><div className="flex justify-end gap-4 pt-4 border-t border-gray-700"><button onClick={openSendModal} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-lg"><Send className="w-4 h-4" /> Review & Send</button></div></div></div>)}</div></div></div>
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 animate-fade-in"><div className="bg-gray-800 rounded-2xl max-w-7xl w-full max-h-[90vh] overflow-y-auto border border-gray-700"><div className="sticky top-0 bg-gray-800/80 backdrop-blur-md p-6 border-b border-gray-700 z-10"><div className="flex items-center justify-between"><h3 className="text-xl font-bold">Consultation Details</h3><button onClick={() => setShowRecordModal(false)} className="p-2 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button></div></div><div className="p-6">{selectedRecord.status !== 'completed' || !selectedRecord.formattedData ? (<div className="text-center py-12">{selectedRecord.status === 'processing' ? <><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div><p>AI is processing the document...</p></> : <><AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" /><h4 className="text-xl font-bold mb-2">Processing Failed</h4><p className="text-red-300 max-w-md mx-auto">{selectedRecord.errorMessage}</p></>}</div>) : (<div className="grid grid-cols-1 lg:grid-cols-2 gap-8"><div className="space-y-6"><h4 className="font-semibold">Original Document</h4>{selectedRecord.imageUrl && <img src={selectedRecord.imageUrl} alt="Consultation document" className="w-full rounded-xl border border-gray-600"/>}<div><h4 className="font-semibold">AI-Polished Transcript</h4><div className="prose prose-sm prose-invert mt-2 p-4 bg-gray-900/50 rounded-lg border border-gray-700 max-w-none max-h-96 overflow-y-auto" dangerouslySetInnerHTML={{ __html: selectedRecord.polishedText?.replace(/\n/g, '<br />') || 'No polished text available.' }}/></div></div><div className="space-y-6"><div className="bg-gray-700/50 rounded-xl p-4 space-y-3"><div className="grid grid-cols-1 md:grid-cols-2 gap-4"><div><p className="text-sm text-gray-400">Patient Email</p><p className="font-medium truncate">{selectedRecord.formattedData.patientEmail || 'N/A'}</p></div><div><p className="text-sm text-gray-400">Doctor</p><p className="font-medium">{selectedRecord.formattedData.doctorName || 'N/A'}</p></div></div><div><p className="text-sm text-gray-400">Complaint</p><p className="font-medium">{selectedRecord.formattedData.complaint || 'N/A'}</p></div></div><div><h4 className="font-semibold mb-3">Consultation & Prescription</h4><div className="rounded-xl border border-gray-700 overflow-hidden"><table className="w-full text-sm text-left"><thead className="bg-gray-700/50"><tr className="text-xs text-gray-300 uppercase"><th scope="col" className="px-4 py-3">Lab Work / Drug</th><th scope="col" className="px-4 py-3">Lab Result / Advice</th><th scope="col" className="px-4 py-3 text-right">Fee (XAF)</th></tr></thead><tbody>{selectedRecord.formattedData.consultationItems.map((item, index) => (<tr key={index} className="bg-gray-800 border-b border-gray-700 last:border-b-0"><td className="px-4 py-3 font-medium align-top">{item.enrichedInfo ? item.enrichedInfo.correctedName : item.labWork}</td><td className="px-4 py-3 align-top text-gray-300">{item.labResults}{item.enrichedInfo && (<div className="space-y-2 mt-1"><p className="text-xs"><span className="font-semibold text-gray-400">Schedule: </span>{item.enrichedInfo.dosageSchedule}</p><p className="text-xs"><span className="font-semibold text-gray-400">Duration: </span>{item.enrichedInfo.duration}</p><div className="flex items-start gap-2 text-xs text-cyan-300 p-2 bg-cyan-500/10 rounded-md border border-cyan-500/20"><Info className="w-4 h-4 flex-shrink-0 mt-0.5" /><span>{item.enrichedInfo.advice}</span></div></div>)}</td><td className="px-4 py-3 text-right font-mono align-top">{item.fee != null ? item.fee.toLocaleString() : 'Free'}</td></tr>))}<tr className="bg-gray-700/50 font-bold"><td colSpan={2} className="px-4 py-3 text-right">Total</td><td className="px-4 py-3 text-right font-mono">{selectedRecord.formattedData.consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0).toLocaleString()}</td></tr></tbody></table></div></div><div><div className="flex justify-between items-center mb-3"><h4 className="font-semibold">Editable Consultation Summary</h4><button onClick={handlePolishSummary} disabled={isPolishing} className="flex items-center gap-2 px-3 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 disabled:opacity-50 transition-all">{isPolishing ? <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div> : <Wand2 className="w-3 h-3" />}Polish with AI</button></div><textarea value={editableSummary} onChange={(e) => setEditableSummary(e.target.value)} rows={6} className="w-full p-4 bg-gray-900/70 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all text-sm text-gray-300 leading-relaxed"></textarea></div><div className="flex justify-end gap-4 pt-4 border-t border-gray-700"><button onClick={openSendModal} className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors shadow-lg"><Send className="w-4 h-4" /> Review & Send</button></div></div></div>)}</div></div></div>
         )}
         {sendModalState.isOpen && (
             <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 animate-fade-in"><div className="bg-gray-800 rounded-2xl max-w-2xl w-full border border-gray-700"><div className="p-6 border-b border-gray-700"><h3 className="text-xl font-bold">Review and Send Consultation</h3></div><div className="p-6 space-y-4"><label className="block"><span className="text-sm font-medium text-gray-400">To:</span><input type="email" value={sendModalState.patientEmail} onChange={(e) => setSendModalState(p=>({...p, patientEmail: e.target.value}))} className="mt-1 w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" disabled={sendModalState.isSending}/></label><label className="block"><span className="text-sm font-medium text-gray-400">Email Body:</span><textarea value={sendModalState.emailBody} onChange={(e) => setSendModalState(p => ({...p, emailBody: e.target.value}))} rows={12} className="mt-1 w-full p-4 bg-gray-700 border border-gray-600 rounded-lg text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea></label></div><div className="flex justify-end gap-4 p-6 bg-gray-900/50 rounded-b-2xl"><button onClick={() => setSendModalState({ ...sendModalState, isOpen: false })} className="px-4 py-2 bg-gray-600 rounded-lg hover:bg-gray-700" disabled={sendModalState.isSending}>Cancel</button><button onClick={handleSendEmail} className="flex items-center justify-center gap-2 w-36 px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-60" disabled={!sendModalState.patientEmail || sendModalState.isSending}>{sendModalState.isSending ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div> Sending...</> : <><Send className="w-4 h-4" /> Confirm & Send</>}</button></div></div></div>
+        )}
+        {showSuccessModal && (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[70] p-4 animate-fade-in"><div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl max-w-md w-full border border-emerald-500/30 p-8 text-center shadow-2xl"><div className="w-16 h-16 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircle2 size={40} /></div><h3 className="text-2xl font-bold mb-3">Success!</h3><p className="text-gray-300 mb-6">The consultation has been saved. The patient will receive their information via Email and WhatsApp shortly.</p><button onClick={() => setShowSuccessModal(false)} className="w-full px-4 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors">Close</button></div></div>
         )}
     </div>
   );

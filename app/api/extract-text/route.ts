@@ -1,61 +1,51 @@
+// app/api/extract-text/route.ts (CORRECTED)
+
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { NextRequest, NextResponse } from 'next/server';
-import { ExtractTextRequest, ExtractTextResponse, ApiError } from '@/types/api';
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
+export async function POST(request: NextRequest) {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: 'Server configuration error: API key not found.' }, { status: 500 });
+  }
 
-export async function POST(request: NextRequest): Promise<NextResponse<ExtractTextResponse | ApiError>> {
+  const genAI = new GoogleGenerativeAI(apiKey);
+
   try {
-    const body: ExtractTextRequest = await request.json();
-    const { imageData } = body;
-
+    const { imageData }: { imageData: string } = await request.json();
     if (!imageData) {
-      return NextResponse.json(
-        { error: 'Image data is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Image data is required' }, { status: 400 });
     }
 
-    // Validate and clean base64 data
     const base64Data = imageData.replace(/^data:image\/[a-z]+;base64,/, '');
-    
     if (!base64Data) {
-      return NextResponse.json(
-        { error: 'Invalid image data format' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid image data format' }, { status: 400 });
     }
 
-    // Determine MIME type from original data URL
     const mimeTypeMatch = imageData.match(/^data:(image\/[a-z]+);base64,/);
     const mimeType = mimeTypeMatch?.[1] || 'image/jpeg';
+    const supportedMimeTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif'];
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    if (!supportedMimeTypes.includes(mimeType)) {
+      return NextResponse.json({ error: `Unsupported MIME type: ${mimeType}` }, { status: 400 });
+    }
     
-    const prompt = `Extract all text from this image. Please return only the extracted text, maintaining the original structure and formatting as much as possible. If no text is found, return "No text detected in the image."`;
+    // --- FIX: Using the correct, powerful model name ---
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+    
+    const prompt = `You are an Optical Character Recognition (OCR) specialist. Extract all text from this image of a medical document. Maintain the original structure, line breaks, and formatting as precisely as possible. Return only the extracted text. If no text is found, return "No text detected in the image."`;
     
     const result = await model.generateContent([
       prompt,
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType: mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
-        }
-      }
+      { inlineData: { data: base64Data, mimeType: mimeType as any } }
     ]);
 
-    const response = await result.response;
-    const extractedText = response.text();
+    const extractedText = result.response.text();
     
     return NextResponse.json({ text: extractedText });
   } catch (error) {
-    console.error('Error extracting text:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Failed to extract text';
-    
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    console.error('Error in /api/extract-text:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to extract text from image.';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
