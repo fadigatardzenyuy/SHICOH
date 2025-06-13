@@ -1,28 +1,8 @@
 "use client"; // This component must be a Client Component
 
-import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { useForm, FormProvider } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { allSchemas } from "@/lib/Validation";
-import { useUser } from "@clerk/nextjs";
-
-import {
-  ArrowRight,
-  ArrowLeft,
-  Heart,
-  Activity,
-  Shield,
-  Zap,
-  Sparkles,
-  CheckCircle,
-} from "lucide-react";
-
-// Import the Server Action - Fixed import path
-// import { saveOnboardingData } from "@/app/(dashboard)/digibook/actions";
-
-// Import step components - Fixed import paths
-// import { saveOnboardingData } from "@/app/(dashboard)/digibook/action";
+import { useState } from "react";
+import { FormProvider, useForm } from "react-hook-form";
+import { DigibookFormData } from "@/lib/types/digibook";
 import { Step1_Personal } from "./steps/Step1_Personal";
 import { Step2_Emergency } from "./steps/Step2_Emergency";
 import { Step3_MedicalHistory } from "./steps/Step3_Emergency";
@@ -31,68 +11,69 @@ import { Step5_Preferences } from "./steps/Step5_CurrentHealth";
 import { Step6_Insurance } from "./steps/Step6_Insurance";
 import { Step7_Consent } from "./steps/Step7_Consent";
 import { SuccessDisplay } from "./SuccesDisplay";
-import { saveOnboardingData } from "@/lib/actions/book.action";
+import {
+  Heart,
+  Activity,
+  Shield,
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle,
+} from "lucide-react";
 
 const TOTAL_STEPS = 7;
 
 export const DigibookForm = () => {
-  const router = useRouter();
-  const { user } = useUser();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const currentSchema = useMemo(
-    () => allSchemas[currentStep - 1],
-    [currentStep]
-  );
-
-  const methods = useForm({
-    // @ts-ignore
-    resolver: zodResolver(currentSchema),
-    mode: "onChange",
+  const methods = useForm<DigibookFormData>({
+    defaultValues: {
+      full_name: "",
+      date_of_birth: "",
+      gender: "",
+      phone_number: "",
+      home_address: "",
+      next_of_kin_name: "",
+      next_of_kin_relationship: "",
+      next_of_kin_phone: "",
+      emergency_contact_name: "",
+      emergency_contact_phone: "",
+      emergency_contact_relationship: "",
+      blood_type: "",
+      allergies: "",
+      existing_conditions: "",
+      past_hospital_visits: "",
+      surgeries: "",
+      family_medical_history: "",
+      current_medications: "",
+      primary_doctor_name: "",
+      primary_doctor_contact: "",
+      preferred_hospital: "",
+      preferred_language: "",
+      preferred_department: "",
+      accessibility_needs: "",
+      insurance_provider: "",
+      insurance_policy_number: "",
+      insurance_contact_info: "",
+      consent_share_records: false,
+      consent_notifications: false,
+      consent_emergency_access: false,
+    },
   });
 
-  const { trigger, getValues } = methods;
+  const { trigger } = methods;
 
-  // Enhanced submit function with better error handling
   const handleSubmitAllData = async () => {
-    if (!user) {
-      setFormError("You must be signed in to complete this form.");
-      return;
-    }
-
     setIsLoading(true);
-    setFormError(null);
-    const formData = getValues();
-    console.log("Entering final data submission with formData:", formData);
-
     try {
-      // Call the secure server action
-      console.log("Before server action");
-      const result = await saveOnboardingData(formData);
-      console.log("After server action", result);
-
-      if (!result.success) {
-        throw new Error(result.error || "An unknown error occurred.");
-      }
-
-      console.log("✅ Successfully saved all data via Server Action!");
-      // @ts-ignore
-      console.log("Server response:", result.data);
-
-      setCurrentStep((prev) => prev + 1); // Move to success screen
-
-      // Redirect after showing success screen
-      setTimeout(() => {
-        router.push("/dashboard");
-        router.refresh(); // Refresh to ensure data is updated
-      }, 3000);
-    } catch (error: any) {
-      console.error("Error submitting final data:", error);
-      setFormError(
-        error.message || "Could not save your information. Please try again."
-      );
+      // Here you would typically send the data to your backend
+      console.log("Form data:", methods.getValues());
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      setCurrentStep((prev) => prev + 1);
+    } catch (error) {
+      setFormError("Failed to submit form. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -188,13 +169,17 @@ export const DigibookForm = () => {
         <div className="absolute -bottom-40 -left-40 w-[800px] h-[800px] bg-green-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[1000px] bg-teal-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
       </div>
+
+      {/* Floating icons */}
       <div className="absolute inset-0 pointer-events-none">
         <Heart className="absolute top-20 left-10 w-4 h-4 text-emerald-400/20 animate-bounce" />
         <Activity className="absolute top-40 right-16 w-5 h-5 text-green-400/20 animate-pulse" />
         <Shield className="absolute bottom-40 left-8 w-4 h-4 text-teal-400/20 animate-bounce delay-1000" />
       </div>
 
-      <div className="relative z-10 w-full px-4 py-6 sm:px-6 lg:px-8">
+      {/* Main content */}
+      <div className="relative z-10 container mx-auto px-4 py-8">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-green-500/20 rounded-full border border-emerald-500/30 backdrop-blur-sm mb-4">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
@@ -208,8 +193,8 @@ export const DigibookForm = () => {
           <p className="text-gray-300 text-base mb-6">{getStepDescription()}</p>
         </div>
 
+        {/* Progress Bar */}
         <div className="mb-8 max-w-4xl mx-auto">
-          {/* Progress Bar */}
           <div className="flex justify-between items-center mb-3">
             <span className="text-emerald-400 font-semibold">
               Step {currentStep} of {TOTAL_STEPS}
@@ -226,8 +211,9 @@ export const DigibookForm = () => {
           </div>
         </div>
 
+        {/* Form */}
         <FormProvider {...methods}>
-          <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+          <form className="space-y-6">
             <div className="min-h-[400px] w-full">{renderStep()}</div>
 
             {formError && (
@@ -239,8 +225,8 @@ export const DigibookForm = () => {
               </div>
             )}
 
+            {/* Navigation Buttons */}
             <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 pt-6 border-t border-gray-700/50">
-              {/* Back Button */}
               <button
                 type="button"
                 onClick={handleBack}
@@ -251,7 +237,6 @@ export const DigibookForm = () => {
                 Back
               </button>
 
-              {/* Next/Finish Button */}
               <button
                 type="button"
                 onClick={handleNext}
@@ -282,8 +267,8 @@ export const DigibookForm = () => {
           </form>
         </FormProvider>
 
-        <div className="mt-8 text-center">
-          {/* Footer */}
+        {/* Footer */}
+        <div className="mt-8 flex justify-center">
           <div className="inline-flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-emerald-400" />

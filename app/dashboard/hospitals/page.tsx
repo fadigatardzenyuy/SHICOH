@@ -1,143 +1,185 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
 import {
-  ArrowLeft,
-  Star,
   MapPin,
+  Star,
   Clock,
   Phone,
-  Calendar,
-  Bed,
-  Users,
+  Navigation,
+  Stethoscope,
+  CheckCircle,
+  Search,
+  Filter,
+  SlidersHorizontal,
   Heart,
   Activity,
   Shield,
-  Navigation,
-  CheckCircle,
-  XCircle,
-  Stethoscope,
-  Building,
-  Award,
-  MapIcon,
+  ArrowLeft,
 } from "lucide-react";
-import { getHospitalById } from "@/data/hospital";
-import { Hospital } from "@/lib/utils/hospitalsUtils";
+import { getHospitalsData, Hospital } from "@/data/hospital";
 
-const HospitalDetailsPage = () => {
-  const params = useParams();
-  const router = useRouter();
-  const hospitalId = parseInt(params.id as string);
-
-  const [hospital, setHospital] = useState<Hospital | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-
-  useEffect(() => {
-    loadHospitalDetails();
-    setIsVisible(true);
-  }, [hospitalId]);
-
-  const loadHospitalDetails = async () => {
-    try {
-      const hospitalData = getHospitalById(hospitalId);
-      if (hospitalData) {
-        setHospital(hospitalData);
-      }
-      setLoading(false);
-    } catch (error) {
-      console.error("Error loading hospital details:", error);
-      setLoading(false);
-    }
-  };
-
-  const handleBackClick = () => {
-    router.back();
-  };
-
-  const handleCallHospital = () => {
-    if (hospital?.phone) {
-      window.location.href = `tel:${hospital.phone}`;
-    }
-  };
-
-  const handleGetDirections = () => {
-    if (hospital?.address) {
-      const encodedAddress = encodeURIComponent(hospital.address);
-      window.open(`https://maps.google.com/maps?q=${encodedAddress}`, "_blank");
-    }
-  };
-
-  const renderStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star
-        key={i}
-        className={`w-4 h-4 ${
-          i < Math.floor(rating)
-            ? "text-yellow-400 fill-yellow-400"
-            : i < rating
-            ? "text-yellow-400 fill-yellow-400/50"
-            : "text-gray-400"
-        }`}
-      />
-    ));
-  };
-
-  const getPriceLevel = (price: string) => {
-    const level = price.length;
-    return {
-      level,
-      description:
-        level === 1
-          ? "Budget-friendly"
-          : level === 2
-          ? "Moderate"
-          : level === 3
-          ? "Premium"
-          : "Luxury",
-    };
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading hospital details...</p>
+// Hospital Card Component
+const HospitalCard = ({ hospital }: { hospital: Hospital }) => {
+  return (
+    <div className="bg-gradient-to-br from-gray-800/60 to-slate-800/60 backdrop-blur-xl rounded-2xl border border-gray-700/50 overflow-hidden hover:border-emerald-500/50 transition-all duration-300 group hover:shadow-2xl hover:shadow-emerald-500/10">
+      <div className="relative h-48 overflow-hidden">
+        <img
+          src={hospital.image}
+          alt={hospital.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+        {hospital.isPreferred && (
+          <div className="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+            Preferred
+          </div>
+        )}
+        {hospital.emergencyAvailable && (
+          <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+            24/7 Emergency
+          </div>
+        )}
+        <div className="absolute bottom-4 left-4 right-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-1">
+              <Star className="w-4 h-4 text-yellow-400 fill-current" />
+              <span className="text-white text-sm font-medium">
+                {hospital.rating}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 text-white text-sm">
+              <MapPin className="w-4 h-4" />
+              <span>{hospital.distance}</span>
+            </div>
+          </div>
         </div>
       </div>
-    );
-  }
-
-  if (!hospital) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Building className="w-8 h-8 text-gray-400" />
+      <div className="p-6">
+        <h3 className="text-lg font-bold mb-1">{hospital.name}</h3>
+        <p className="text-gray-400 text-sm flex items-center gap-1 mb-3">
+          <MapPin className="w-3 h-3" />
+          {hospital.location}
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {hospital.specialties.slice(0, 3).map((specialty, index) => (
+            <span
+              key={index}
+              className="px-2 py-1 bg-gray-700/50 rounded-lg text-xs text-gray-300"
+            >
+              {specialty}
+            </span>
+          ))}
+        </div>
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              <span className="text-sm font-medium text-emerald-400">
+                {hospital.waitTime}
+              </span>
+            </div>
+            <span className="text-xs text-gray-400">Wait Time</span>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Hospital Not Found</h2>
-          <p className="text-gray-400 mb-6">
-            The hospital you're looking for doesn't exist.
-          </p>
-          <button
-            onClick={handleBackClick}
-            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition-colors"
-          >
-            Go Back
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Stethoscope className="w-3 h-3 text-blue-400" />
+              <span className="text-sm font-medium text-blue-400">
+                {hospital.totalDoctors}
+              </span>
+            </div>
+            <span className="text-xs text-gray-400">Doctors</span>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <CheckCircle className="w-3 h-3 text-green-400" />
+              <span className="text-sm font-medium text-green-400">Open</span>
+            </div>
+            <span className="text-xs text-gray-400">Status</span>
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 px-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 active:scale-95">
+            Book Appointment
+          </button>
+          <button className="relative group px-4 py-2 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors duration-300 active:scale-95">
+            <Phone className="w-4 h-4" />
+            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900 text-white px-2 py-1 text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Call
+            </span>
+          </button>
+          <button className="relative group px-4 py-2 border border-gray-600 hover:border-emerald-500 hover:bg-emerald-500/10 rounded-xl transition-colors duration-300 active:scale-95">
+            <Navigation className="w-4 h-4" />
+            <span className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-gray-900 text-white px-2 py-1 text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Navigate
+            </span>
           </button>
         </div>
       </div>
+    </div>
+  );
+};
+
+const HospitalsPage = () => {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [allHospitals, setAllHospitals] = useState<Hospital[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        const hospitals = await getHospitalsData();
+        setAllHospitals(hospitals);
+      } catch (error) {
+        console.error("Error fetching hospitals:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchHospitals();
+    setIsVisible(true);
+  }, []);
+
+  const filterOptions = [
+    { value: "all", label: "All Hospitals" },
+    { value: "preferred", label: "Preferred" },
+    { value: "emergency", label: "Emergency" },
+    { value: "general", label: "General" },
+    { value: "specialty", label: "Specialty" },
+    { value: "nearby", label: "Nearby" },
+  ];
+
+  const filteredHospitals = allHospitals.filter((hospital) => {
+    const matchesSearch =
+      hospital.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      hospital.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      hospital.specialties.some((specialty) =>
+        specialty.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+    const matchesFilter =
+      selectedFilter === "all" ||
+      (selectedFilter === "preferred" && hospital.isPreferred) ||
+      (selectedFilter === "emergency" && hospital.emergencyAvailable) ||
+      (selectedFilter === "nearby" && parseFloat(hospital.distance) < 10) ||
+      hospital.category === selectedFilter;
+
+    return matchesSearch && matchesFilter;
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-300">Loading hospitals...</p>
+        </div>
+      </div>
     );
   }
-
-  const priceInfo = getPriceLevel(hospital.price);
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "services", label: "Services" },
-    { id: "contact", label: "Contact" },
-  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white">
@@ -156,7 +198,7 @@ const HospitalDetailsPage = () => {
       </div>
 
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 pt-8 pb-16">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div
             className={`mb-8 transition-all duration-1000 ${
@@ -166,271 +208,173 @@ const HospitalDetailsPage = () => {
             }`}
           >
             <div className="flex items-center gap-4 mb-6">
-              <button
-                onClick={handleBackClick}
-                className="p-2 hover:bg-gray-800/50 rounded-xl transition-colors"
-              >
+              <button className="p-2 hover:bg-gray-800/50 rounded-xl transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="flex-1">
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1">
-                  {hospital.name}
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold mb-2">
+                  Find Your Perfect
+                  <span className="block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent">
+                    Healthcare Provider
+                  </span>
                 </h1>
-                <div className="flex items-center gap-2 text-gray-300">
-                  <MapPin className="w-4 h-4" />
-                  <span>{hospital.location}</span>
-                </div>
+                <p className="text-gray-300 text-lg">
+                  Discover top-rated hospitals and medical centers near you
+                </p>
               </div>
-              {hospital.isPreferred && (
-                <div className="flex items-center gap-2 px-3 py-1 bg-emerald-600/20 border border-emerald-500/30 rounded-full text-emerald-400 text-sm">
-                  <Award className="w-4 h-4" />
-                  Preferred
+            </div>
+
+            {/* Search and Filter Bar */}
+            <div className="bg-gradient-to-r from-gray-800/50 to-slate-800/50 backdrop-blur-xl rounded-2xl p-4 border border-gray-700/50">
+              <div className="flex flex-col sm:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search hospitals, specialties, or locations..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+
+                {/* Filter Toggle */}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="flex items-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition-colors"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
+                </button>
+              </div>
+
+              {/* Filter Options */}
+              {showFilters && (
+                <div className="mt-4 pt-4 border-t border-gray-700/50">
+                  <div className="flex flex-wrap gap-2">
+                    {filterOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setSelectedFilter(option.value)}
+                        className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300 ${
+                          selectedFilter === option.value
+                            ? "bg-emerald-600 text-white"
+                            : "bg-gray-700/50 text-gray-300 hover:bg-gray-600/50"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Hero Image and Quick Info */}
+          {/* Results Header */}
           <div
-            className={`mb-8 transition-all duration-1000 delay-200 ${
+            className={`mb-6 transition-all duration-1000 delay-300 ${
               isVisible
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-8"
             }`}
           >
-            <div className="bg-gradient-to-r from-gray-800/50 to-slate-800/50 backdrop-blur-xl rounded-2xl overflow-hidden border border-gray-700/50">
-              <div className="relative h-64 sm:h-80">
-                <img
-                  src={hospital.image}
-                  alt={hospital.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                <div className="absolute bottom-4 left-4 right-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1">
-                        {renderStars(hospital.rating)}
-                        <span className="ml-2 text-white font-semibold">
-                          {hospital.rating}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 text-gray-200">
-                        <Clock className="w-4 h-4" />
-                        <span>{hospital.waitTime} wait</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleCallHospital}
-                        className="p-2 bg-emerald-600 hover:bg-emerald-500 rounded-xl transition-colors"
-                      >
-                        <Phone className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={handleGetDirections}
-                        className="p-2 bg-blue-600 hover:bg-blue-500 rounded-xl transition-colors"
-                      >
-                        <Navigation className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold">
+                {filteredHospitals.length} Hospitals Found
+              </h2>
+              <div className="text-sm text-gray-400">
+                Showing results for "
+                {selectedFilter === "all"
+                  ? "all hospitals"
+                  : filterOptions.find((f) => f.value === selectedFilter)
+                      ?.label}
+                "
               </div>
             </div>
           </div>
 
-          {/* Tab Navigation */}
+          {/* Hospital Grid */}
           <div
-            className={`mb-8 transition-all duration-1000 delay-300 ${
+            className={`transition-all duration-1000 delay-500 ${
               isVisible
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-8"
             }`}
           >
-            <div className="flex gap-2 p-2 bg-gray-800/50 rounded-xl backdrop-blur-xl border border-gray-700/50">
-              {tabs.map((tab) => (
+            {filteredHospitals.length > 0 ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {filteredHospitals.map((hospital, index) => (
+                  <div
+                    key={hospital.id}
+                    className="animate-fadeInUp"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <HospitalCard hospital={hospital} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <div className="w-16 h-16 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-6 h-6 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">
+                  No hospitals found
+                </h3>
+                <p className="text-gray-400 mb-4">
+                  Try adjusting your search criteria or filters
+                </p>
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                    activeTab === tab.id
-                      ? "bg-emerald-600 text-white"
-                      : "text-gray-300 hover:bg-gray-700/50"
-                  }`}
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedFilter("all");
+                  }}
+                  className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition-colors"
                 >
-                  {tab.label}
+                  Clear Filters
                 </button>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
-          {/* Tab Content */}
+          {/* Quick Stats */}
           <div
-            className={`transition-all duration-1000 delay-400 ${
+            className={`mt-16 transition-all duration-1000 delay-700 ${
               isVisible
                 ? "opacity-100 translate-y-0"
                 : "opacity-0 translate-y-8"
             }`}
           >
-            {activeTab === "overview" && (
-              <div className="space-y-6">
-                {/* Quick Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-4 border border-gray-700/50 text-center">
-                    <Users className="w-6 h-6 text-emerald-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white mb-1">
-                      {hospital.totalDoctors}
-                    </div>
-                    <div className="text-gray-400 text-sm">Doctors</div>
+            <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-emerald-400 mb-1">
+                    {allHospitals.length}
                   </div>
-                  <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-4 border border-gray-700/50 text-center">
-                    <Bed className="w-6 h-6 text-blue-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white mb-1">
-                      {hospital.beds}
-                    </div>
-                    <div className="text-gray-400 text-sm">Beds</div>
-                  </div>
-                  <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-4 border border-gray-700/50 text-center">
-                    <Calendar className="w-6 h-6 text-yellow-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white mb-1">
-                      {hospital.established}
-                    </div>
-                    <div className="text-gray-400 text-sm">Established</div>
-                  </div>
-                  <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-4 border border-gray-700/50 text-center">
-                    <MapPin className="w-6 h-6 text-green-400 mx-auto mb-2" />
-                    <div className="text-2xl font-bold text-white mb-1">
-                      {hospital.distance}
-                    </div>
-                    <div className="text-gray-400 text-sm">Distance</div>
-                  </div>
+                  <div className="text-gray-400 text-sm">Total Hospitals</div>
                 </div>
-
-                {/* Hospital Information */}
-                <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-6 border border-gray-700/50">
-                  <h3 className="text-xl font-bold mb-4">
-                    Hospital Information
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Building className="w-4 h-4 text-emerald-400" />
-                        <span className="font-medium">Status</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-300">
-                        {hospital.status === "open" ? (
-                          <CheckCircle className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-400" />
-                        )}
-                        <span className="capitalize">{hospital.status}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Shield className="w-4 h-4 text-emerald-400" />
-                        <span className="font-medium">Emergency Services</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-300">
-                        {hospital.emergencyAvailable ? (
-                          <CheckCircle className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-red-400" />
-                        )}
-                        <span>
-                          {hospital.emergencyAvailable
-                            ? "Available 24/7"
-                            : "Not Available"}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium">Price Range</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-300">
-                        <span className="text-emerald-400">
-                          {hospital.price}
-                        </span>
-                        <span>({priceInfo.description})</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="w-4 h-4 text-emerald-400" />
-                        <span className="font-medium">Average Wait Time</span>
-                      </div>
-                      <div className="text-gray-300">{hospital.waitTime}</div>
-                    </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-400 mb-1">
+                    {allHospitals.filter((h) => h.emergencyAvailable).length}
                   </div>
+                  <div className="text-gray-400 text-sm">24/7 Emergency</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-blue-400 mb-1">
+                    {allHospitals.reduce((sum, h) => sum + h.totalDoctors, 0)}
+                  </div>
+                  <div className="text-gray-400 text-sm">Total Doctors</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-yellow-400 mb-1">
+                    4.5
+                  </div>
+                  <div className="text-gray-400 text-sm">Avg Rating</div>
                 </div>
               </div>
-            )}
-
-            {activeTab === "services" && (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-6 border border-gray-700/50">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <Stethoscope className="w-5 h-5 text-emerald-400" />
-                    Medical Specialties
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {hospital.specialties.map((specialty, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-2 p-3 bg-gray-700/30 rounded-lg border border-gray-600/30"
-                      >
-                        <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                        <span className="text-gray-200">{specialty}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "contact" && (
-              <div className="space-y-6">
-                <div className="bg-gradient-to-r from-gray-800/40 to-slate-800/40 backdrop-blur-xl rounded-xl p-6 border border-gray-700/50">
-                  <h3 className="text-xl font-bold mb-4">
-                    Contact Information
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3">
-                      <Phone className="w-5 h-5 text-emerald-400 mt-1 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium mb-1">Phone Number</div>
-                        <div className="text-gray-300">{hospital.phone}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <MapIcon className="w-5 h-5 text-emerald-400 mt-1 flex-shrink-0" />
-                      <div>
-                        <div className="font-medium mb-1">Address</div>
-                        <div className="text-gray-300">{hospital.address}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 mt-6">
-                    <button
-                      onClick={handleCallHospital}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-xl font-medium transition-colors"
-                    >
-                      <Phone className="w-4 h-4" />
-                      Call Hospital
-                    </button>
-                    <button
-                      onClick={handleGetDirections}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-medium transition-colors"
-                    >
-                      <Navigation className="w-4 h-4" />
-                      Get Directions
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
@@ -438,4 +382,4 @@ const HospitalDetailsPage = () => {
   );
 };
 
-export default HospitalDetailsPage;
+export default HospitalsPage;

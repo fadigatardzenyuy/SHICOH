@@ -7,7 +7,7 @@ import { useUser } from "@clerk/nextjs";
 import { getUserDigibook } from "@/lib/actions/book.action";
 
 import { getRecommendedHospitals, Hospital } from "@/lib/utils/hospitalsUtils";
-import { getHospitalsData, hospitalsData } from "@/data/hospital";
+
 import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
 import DashboardError from "@/components/dashboard/DashboardErro";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -15,6 +15,7 @@ import UserProfileCard from "@/components/dashboard/UserProfileCard";
 import InfoCards from "@/components/dashboard/InfoCard";
 import RecommendedHospitals from "@/components/dashboard/RecommendedHospitals";
 import QuickActions from "@/components/dashboard/QuickAction";
+import { getHospitalsData } from "@/data/hospital";
 
 // Import hospital data and utilities
 
