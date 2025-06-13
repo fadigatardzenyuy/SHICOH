@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useFormContext } from "react-hook-form";
 import { CheckCircle, Shield, FileText } from "lucide-react";
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useFormContext } from "react-hook-form";
-import { Phone, Heart, AlertCircle } from "lucide-react";
+import { FormSelect } from "../FormSelect";
+import { Phone, Heart, AlertCircle, User, Droplet } from "lucide-react";
 
 export const Step2_Emergency = () => {
   const { register } = useFormContext();
@@ -66,18 +67,73 @@ export const Step2_Emergency = () => {
               </div>
             </div>
             <div>
+              <FormSelect
+                name="emergency_contact_relationship"
+                label="Relationship to Emergency Contact"
+                register={register}
+                options={[
+                  { value: "spouse", label: "Spouse" },
+                  { value: "parent", label: "Parent" },
+                  { value: "sibling", label: "Sibling" },
+                  { value: "child", label: "Child" },
+                  { value: "other_relative", label: "Other Relative" },
+                  { value: "friend", label: "Friend" },
+                  { value: "other", label: "Other" },
+                ]}
+                placeholder="Select relationship"
+                className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-amber-500 focus:ring-amber-500/20 text-sm sm:text-base"
+              />
+            </div>
+            <div>
               <label
-                htmlFor="emergency_contact_relationship"
+                htmlFor="other_emergency_relationship"
                 className="flex items-center gap-2 text-sm font-medium text-amber-400 mb-3"
               >
-                <Heart className="w-4 h-4" />
-                Relationship to Emergency Contact
+                <User className="w-4 h-4" />
+                Other Relationship (if selected)
               </label>
               <input
                 type="text"
-                id="emergency_contact_relationship"
-                {...register("emergency_contact_relationship")}
-                placeholder="e.g., Spouse, Parent, Sibling"
+                id="other_emergency_relationship"
+                {...register("other_emergency_relationship")}
+                placeholder="Specify the relationship"
+                className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-white placeholder-gray-400 transition-all duration-200"
+              />
+            </div>
+            <div>
+              <FormSelect
+                name="blood_type"
+                label="Blood Type"
+                register={register}
+                options={[
+                  { value: "a_positive", label: "A+" },
+                  { value: "a_negative", label: "A-" },
+                  { value: "b_positive", label: "B+" },
+                  { value: "b_negative", label: "B-" },
+                  { value: "ab_positive", label: "AB+" },
+                  { value: "ab_negative", label: "AB-" },
+                  { value: "o_positive", label: "O+" },
+                  { value: "o_negative", label: "O-" },
+                  { value: "unknown", label: "Unknown" },
+                  { value: "other", label: "Other" },
+                ]}
+                placeholder="Select blood type"
+                className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-amber-500 focus:ring-amber-500/20 text-sm sm:text-base"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="other_blood_type"
+                className="flex items-center gap-2 text-sm font-medium text-amber-400 mb-3"
+              >
+                <Droplet className="w-4 h-4" />
+                Other Blood Type (if selected)
+              </label>
+              <input
+                type="text"
+                id="other_blood_type"
+                {...register("other_blood_type")}
+                placeholder="Specify blood type"
                 className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-white placeholder-gray-400 transition-all duration-200"
               />
             </div>
@@ -92,22 +148,6 @@ export const Step2_Emergency = () => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label
-                  htmlFor="blood_type"
-                  className="flex items-center gap-2 text-sm font-medium text-red-400 mb-3"
-                >
-                  <Heart className="w-4 h-4" />
-                  Blood Type
-                </label>
-                <input
-                  type="text"
-                  id="blood_type"
-                  {...register("blood_type")}
-                  placeholder="e.g., A+, B-, O+, AB+"
-                  className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 text-white placeholder-gray-400 transition-all duration-200"
-                />
-              </div>
               <div>
                 <label
                   htmlFor="allergies"

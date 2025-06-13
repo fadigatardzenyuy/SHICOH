@@ -1,5 +1,6 @@
-"use client"
+"use client";
 import { useFormContext } from "react-hook-form";
+import { FormSelect } from "../FormSelect";
 import { CreditCard, Shield, FileText } from "lucide-react";
 
 export const Step6_Insurance = () => {
@@ -32,20 +33,71 @@ export const Step6_Insurance = () => {
 
         {/* Form Container */}
         <div className="space-y-6 sm:space-y-8">
+          <FormSelect
+            name="insurance_provider"
+            label="Insurance Provider"
+            register={register}
+            options={[
+              { value: "cnps", label: "CNPS" },
+              { value: "allianz", label: "Allianz" },
+              { value: "axa", label: "AXA" },
+              { value: "saham", label: "Saham" },
+              { value: "sunu", label: "Sunu" },
+              { value: "nsia", label: "NSIA" },
+              { value: "sanlam", label: "Sanlam" },
+              { value: "other", label: "Other" },
+            ]}
+            placeholder="Select insurance provider"
+            className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-amber-500 focus:ring-amber-500/20 text-sm sm:text-base"
+          />
+
           <div>
             <label
-              htmlFor="insurance_provider"
+              htmlFor="other_insurance_provider"
               className="flex items-center gap-2 text-sm font-medium text-amber-400 mb-3"
             >
               <Shield className="w-4 h-4" />
-              Insurance Provider
+              Other Insurance Provider (if selected)
             </label>
             <input
               type="text"
-              id="insurance_provider"
-              {...register("insurance_provider")}
-              placeholder="e.g., CNPS, Allianz, AXA"
+              id="other_insurance_provider"
+              {...register("other_insurance_provider")}
+              placeholder="Specify insurance provider"
               className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-white placeholder-gray-400 transition-all duration-200"
+            />
+          </div>
+
+          <FormSelect
+            name="coverage_type"
+            label="Coverage Type"
+            register={register}
+            options={[
+              { value: "basic", label: "Basic Coverage" },
+              { value: "standard", label: "Standard Coverage" },
+              { value: "premium", label: "Premium Coverage" },
+              { value: "comprehensive", label: "Comprehensive Coverage" },
+              { value: "family", label: "Family Coverage" },
+              { value: "other", label: "Other" },
+            ]}
+            placeholder="Select coverage type"
+            className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-orange-500 focus:ring-orange-500/20 text-sm sm:text-base"
+          />
+
+          <div>
+            <label
+              htmlFor="other_coverage_type"
+              className="flex items-center gap-2 text-sm font-medium text-orange-400 mb-3"
+            >
+              <FileText className="w-4 h-4" />
+              Other Coverage Type (if selected)
+            </label>
+            <input
+              type="text"
+              id="other_coverage_type"
+              {...register("other_coverage_type")}
+              placeholder="Specify coverage type"
+              className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 text-white placeholder-gray-400 transition-all duration-200"
             />
           </div>
 
