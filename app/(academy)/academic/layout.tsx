@@ -15,11 +15,9 @@ export default function Layout({
 }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <body>
         <Navbar />
-        <main className="w-full flex flex-col items-center justify-center min-h-screen">
-          {children}
-        </main>
+        <main>{children}</main>
         <FooterSection />
       </body>
     </html>

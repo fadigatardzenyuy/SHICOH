@@ -18,9 +18,16 @@ export default function Layout({
   return (
     <html lang="en">
       <body className=" bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-        <Navbar />
-        {children}
-        <FooterSection />
+        <div className="hidden md:block flex-shrink-0 w-full">
+          <Navbar />
+        </div>
+
+        <main className="flex-1 overflow-auto w-full h-full !m-0 !p-0 !max-w-none !gap-0 bg-background">
+          <div className="h-full w-full">{children}</div>
+        </main>
+        <div className="md:hidden flex-shrink-0 w-full">
+          <FooterSection />
+        </div>
       </body>
     </html>
   );
