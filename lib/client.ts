@@ -1,4 +1,5 @@
 // lib/supabase/client.ts
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { auth } from "@clerk/nextjs/server";
 
@@ -6,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 export interface Database {
   public: {
     Tables: {
+      // --- UPDATED 'profiles' TABLE SCHEMA ---
       profiles: {
         Row: {
           id: string;
@@ -13,6 +15,7 @@ export interface Database {
           email: string;
           full_name: string | null;
           onboarding_complete: boolean;
+          isAdmin: boolean | null; // <-- ADDED
           created_at: string;
           updated_at: string;
         };
@@ -22,6 +25,7 @@ export interface Database {
           email: string;
           full_name?: string | null;
           onboarding_complete?: boolean;
+          isAdmin?: boolean | null; // <-- ADDED
           created_at?: string;
           updated_at?: string;
         };
@@ -31,10 +35,12 @@ export interface Database {
           email?: string;
           full_name?: string | null;
           onboarding_complete?: boolean;
+          isAdmin?: boolean | null; // <-- ADDED
           created_at?: string;
           updated_at?: string;
         };
       };
+      
       digibooks: {
         Row: {
           id: string;
@@ -127,6 +133,52 @@ export interface Database {
           updated_at?: string;
         };
       };
+
+      // --- NEW 'consultations' TABLE SCHEMA ---
+      consultations: {
+        Row: {
+          id: string;
+          user_id: string | null; // Foreign key to profiles.id
+          doctor_name: string | null;
+          patient_email: string | null;
+          patient_phone_number: string | null;
+          complaint: string | null;
+          consultation_items: any | null; // JSONB column
+          summary_notes: string | null;
+          total_fee: number | null;
+          image_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          doctor_name?: string | null;
+          patient_email?: string | null;
+          patient_phone_number?: string | null;
+          complaint?: string | null;
+          consultation_items?: any | null;
+          summary_notes?: string | null;
+          total_fee?: number | null;
+          image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          doctor_name?: string | null;
+          patient_email?: string | null;
+          patient_phone_number?: string | null;
+          complaint?: string | null;
+          consultation_items?: any | null;
+          summary_notes?: string | null;
+          total_fee?: number | null;
+          image_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
     };
   };
 }
@@ -145,7 +197,7 @@ export function createSupabaseServerAdminClient() {
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error('Missing Supabase environment variables');
+    throw new Error('Missing Supabase environment variables for admin client');
   }
 
   return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
