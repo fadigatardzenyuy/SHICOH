@@ -1,5 +1,6 @@
-"use client"
+"use client";
 import { useFormContext } from "react-hook-form";
+import { FormSelect } from "../FormSelect";
 import { Heart, Activity, AlertCircle } from "lucide-react";
 
 export const Step4_CurrentHealth = () => {
@@ -50,37 +51,82 @@ export const Step4_CurrentHealth = () => {
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="allergies"
-              className="flex items-center gap-2 text-sm font-medium text-teal-400 mb-3"
-            >
-              <AlertCircle className="w-4 h-4" />
-              Allergies
-            </label>
-            <textarea
-              id="allergies"
-              {...register("allergies")}
-              placeholder="List any allergies to medications, foods, or other substances"
-              rows={3}
-              className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 text-white placeholder-gray-400 transition-all duration-200"
-            />
-          </div>
+          <FormSelect
+            name="common_allergies"
+            label="Common Allergies"
+            register={register}
+            options={[
+              { value: "penicillin", label: "Penicillin" },
+              { value: "aspirin", label: "Aspirin" },
+              { value: "sulfa_drugs", label: "Sulfa Drugs" },
+              { value: "peanuts", label: "Peanuts" },
+              { value: "shellfish", label: "Shellfish" },
+              { value: "dairy", label: "Dairy" },
+              { value: "eggs", label: "Eggs" },
+              { value: "latex", label: "Latex" },
+              { value: "pollen", label: "Pollen" },
+              { value: "dust", label: "Dust" },
+              { value: "pet_dander", label: "Pet Dander" },
+              { value: "other", label: "Other" },
+            ]}
+            placeholder="Select common allergies"
+            className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-rose-500 focus:ring-rose-500/20 text-sm sm:text-base"
+          />
 
           <div>
             <label
-              htmlFor="current_symptoms"
-              className="flex items-center gap-2 text-sm font-medium text-emerald-400 mb-3"
+              htmlFor="other_allergies"
+              className="flex items-center gap-2 text-sm font-medium text-rose-400 mb-3"
             >
-              <Heart className="w-4 h-4" />
-              Current Symptoms
+              <AlertCircle className="w-4 h-4" />
+              Other Allergies (if selected)
             </label>
-            <textarea
-              id="current_symptoms"
-              {...register("current_symptoms")}
-              placeholder="Describe any symptoms you are currently experiencing"
-              rows={4}
-              className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-white placeholder-gray-400 transition-all duration-200"
+            <input
+              type="text"
+              id="other_allergies"
+              {...register("other_allergies")}
+              placeholder="Specify other allergies"
+              className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-white placeholder-gray-400 transition-all duration-200"
+            />
+          </div>
+
+          <FormSelect
+            name="common_symptoms"
+            label="Common Symptoms"
+            register={register}
+            options={[
+              { value: "fever", label: "Fever" },
+              { value: "cough", label: "Cough" },
+              { value: "headache", label: "Headache" },
+              { value: "fatigue", label: "Fatigue" },
+              { value: "nausea", label: "Nausea" },
+              { value: "dizziness", label: "Dizziness" },
+              { value: "chest_pain", label: "Chest Pain" },
+              { value: "shortness_of_breath", label: "Shortness of Breath" },
+              { value: "muscle_pain", label: "Muscle Pain" },
+              { value: "joint_pain", label: "Joint Pain" },
+              { value: "rash", label: "Rash" },
+              { value: "abdominal_pain", label: "Abdominal Pain" },
+              { value: "other", label: "Other" },
+            ]}
+            placeholder="Select common symptoms"
+            className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-rose-500 focus:ring-rose-500/20 text-sm sm:text-base"
+          />
+
+          <div>
+            <label
+              htmlFor="other_symptoms"
+              className="flex items-center gap-2 text-sm font-medium text-rose-400 mb-3"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Other Symptoms (if selected)
+            </label>
+            <input
+              type="text"
+              id="other_symptoms"
+              {...register("other_symptoms")}
+              placeholder="Specify other symptoms"
+              className="block w-full px-4 py-3 bg-gray-800/50 border border-gray-600/50 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 text-white placeholder-gray-400 transition-all duration-200"
             />
           </div>
         </div>

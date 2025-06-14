@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useFormContext } from "react-hook-form";
 import { FormInput } from "../FormInput";
 import { User, Phone, MapPin, Users } from "lucide-react";
@@ -62,9 +62,15 @@ export const Step1_Personal = () => {
               <FormInput
                 name="gender"
                 label="Gender"
+                type="select"
                 register={register}
                 error={errors.gender}
-                placeholder="e.g., Male, Female, Prefer not to say"
+                options={[
+                  { value: "male", label: "Male" },
+                  { value: "female", label: "Female" },
+                  { value: "other", label: "Other" },
+                  { value: "prefer_not_to_say", label: "Prefer not to say" },
+                ]}
                 className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-emerald-500 focus:ring-emerald-500/20 text-sm sm:text-base"
               />
               <FormInput
@@ -110,9 +116,18 @@ export const Step1_Personal = () => {
               <FormInput
                 name="next_of_kin_relationship"
                 label="Relationship"
+                type="select"
                 register={register}
                 error={errors.next_of_kin_relationship}
-                placeholder="e.g., Spouse, Parent, Sibling"
+                options={[
+                  { value: "spouse", label: "Spouse" },
+                  { value: "parent", label: "Parent" },
+                  { value: "sibling", label: "Sibling" },
+                  { value: "child", label: "Child" },
+                  { value: "relative", label: "Other Relative" },
+                  { value: "friend", label: "Friend" },
+                  { value: "other", label: "Other" },
+                ]}
                 className="bg-gray-800/50 border-gray-600/50 text-white placeholder-gray-400 focus:border-emerald-500 focus:ring-emerald-500/20 text-sm sm:text-base"
               />
               <FormInput

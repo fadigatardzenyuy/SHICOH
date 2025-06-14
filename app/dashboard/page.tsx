@@ -1,184 +1,148 @@
-// This is the complete, self-contained, and corrected component file.
-// It uses the new single-call architecture to avoid rate limits.
+x
 
-"use client"
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  Upload, Camera, FileText, User, Clock, CheckCircle, AlertCircle, X,
-  Send, Heart, Stethoscope, Eye, Trash2, Wand2, Info
-} from 'lucide-react';
+"use client";
 
-// --- TYPES (Updated for the new API response) ---
-interface ConsultationRecord {
-  id: string; documentTitle: string; recordType: string; uploadDate: string;
-  status: 'processing' | 'completed' | 'error';
-  originalText?: string; formattedData?: ProcessedConsultation;
-  imageUrl?: string; errorMessage?: string;
-}
+import React, { useState, useEffect, useMemo } from "react";
+import { useUser } from "@clerk/nextjs";
+import { getUserDigibook } from "@/lib/actions/book.action";
 
-interface ProcessedConsultation {
-  patientEmail: string | null; patientPhoneNumber: string | null;
-  doctorName: string | null; complaint: string | null;
-  consultationItems: ConsultationItem[]; summaryNotes: string;
-}
+import { getRecommendedHospitals, Hospital } from "@/lib/utils/hospitalsUtils";
 
-interface ConsultationItem {
-  labWork: string; labResults: string | null;
-  drugs: string | null; fee: number | null;
-  enrichedInfo?: {
-    correctedName: string; dosageSchedule: string; duration: string; advice: string;
-  } | null;
-}
+import LoadingSpinner from "@/components/dashboard/LoadingSpinner";
+import DashboardError from "@/components/dashboard/DashboardErro";
+import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import UserProfileCard from "@/components/dashboard/UserProfileCard";
+import InfoCards from "@/components/dashboard/InfoCard";
+import RecommendedHospitals from "@/components/dashboard/RecommendedHospitals";
+import QuickActions from "@/components/dashboard/QuickAction";
+import { getHospitalsData } from "@/data/hospital";
 
-interface ProcessingState {
-  isProcessing: boolean; error: string | null; progress: number; message: string;
-}
+// Import hospital data and utilities
+
+// Array of high-quality cover images for a random selection
+const coverImages = [
+  "https://images.unsplash.com/photo-1576091160550-2173dba999ef?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1532938911079-1b06ac7ceec7?q=80&w=2138&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1476703993599-0035a21b17a8?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=2070&auto=format&fit=crop",
+  "https://images.unsplash.com/photo-1579684385127-6ab180507744?q=80&w=2070&auto=format&fit=crop",
+];
+
+export default function PatientDashboard() {
+  const { user: clerkUser } = useUser();
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hospitals, setHospitals] = useState<Hospital[]>([]);
+  const [hospitalsLoading, setHospitalsLoading] = useState(true);
 
 interface SendModalState {
   isOpen: boolean; record: ConsultationRecord | null; patientEmail: string;
   emailBody: string; isSending: boolean;
 }
 
-// --- API CLIENT (Simplified) ---
-class ApiClient {
-  private static async request<TResponsePayload>(endpoint: string, options: RequestInit): Promise<TResponsePayload> {
-    try {
-      const response = await fetch(endpoint, { headers: { 'Content-Type': 'application/json', ...options.headers }, ...options });
-      const responseText = await response.text();
-      if (!response.ok) {
-        const errorData = JSON.parse(responseText);
-        throw new Error(errorData.error || `API Error: ${response.status}`);
+  // Get recommended hospitals based on rating and distance
+  const recommendedHospitals = useMemo(() => {
+    if (hospitals.length === 0) return [];
+    return getRecommendedHospitals(hospitals, 4.5, 4);
+  }, [hospitals]);
+
+  // Fetch hospital data
+  useEffect(() => {
+    const fetchHospitals = async () => {
+      try {
+        setHospitalsLoading(true);
+        const hospitalData = await getHospitalsData();
+        setHospitals(hospitalData);
+      } catch (error) {
+        console.error("Failed to fetch hospitals:", error);
+        // Fallback to static data
+        setHospitals(hospitalsData);
+      } finally {
+        setHospitalsLoading(false);
       }
-      return JSON.parse(responseText);
-    } catch (error) { console.error('API Client Error:', error); throw error; }
+    };
+
+    fetchHospitals();
+  }, []);
+
+  // Fetch user data
+  useEffect(() => {
+    const fetchUserData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await getUserDigibook();
+        if (response.success) {
+          if (response.data) {
+            setUserData(response.data);
+          } else {
+            setError(
+              "Welcome! Please create your health profile (Digibook) to view your dashboard."
+            );
+          }
+        } else {
+          setError(
+            response.error || "Failed to load user data. Please try again."
+          );
+        }
+      } catch (err) {
+        console.error("Failed to fetch user data:", err);
+        setError("An unexpected error occurred. Please refresh the page.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
-  static async extractText(imageData: string): Promise<string> {
-    const response = await this.request<{ text: string }>('/api/extract-text', { method: 'POST', body: JSON.stringify({ imageData }) });
-    return response.text;
+  if (error) {
+    return <DashboardError error={error} />;
   }
 
   static async processConsultation(text: string): Promise<ProcessedConsultation> {
     return this.request<ProcessedConsultation>('/api/process-consultation', { method: 'POST', body: JSON.stringify({ text }) });
   }
 
-  static async polishSummary(text: string): Promise<{ polishedText: string }> { return this.request<{ polishedText: string }>('/api/polish-summary', { method: 'POST', body: JSON.stringify({ text }) }); }
-}
-
-// --- UTILITY & CAMERA COMPONENTS (Full versions included) ---
-const convertFileToBase64 = (file: File): Promise<string> => { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onloadend = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('Failed to convert file to base64.')); reader.onerror = () => reject(new Error('Failed to read file.')); reader.readAsDataURL(file); }); };
-const validateImageFile = (file: File): { isValid: boolean; error?: string } => { const maxSize = 10 * 1024 * 1024; const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/pdf', 'image/webp']; if (!allowedTypes.includes(file.type)) { return { isValid: false, error: 'Invalid file type. Please upload an image or PDF file.' }; } if (file.size > maxSize) { return { isValid: false, error: 'File size too large. Please upload a file smaller than 10MB.' }; } return { isValid: true }; };
-const CameraCapture = ({ onCapture, onClose, isProcessing }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { startCamera(); return () => stopCamera(); }, []);
-  const startCamera = async () => { try { setIsLoading(true); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); } setIsLoading(false); } catch (err) { setError('Camera access denied. Please check permissions.'); setIsLoading(false); } };
-  const stopCamera = () => { if (streamRef.current) { streamRef.current.getTracks().forEach(track => track.stop()); streamRef.current = null; } };
-  const captureImage = () => { if (!videoRef.current || !canvasRef.current) return; const video = videoRef.current; const canvas = canvasRef.current; const ctx = canvas.getContext('2d'); if (ctx) { canvas.width = video.videoWidth; canvas.height = video.videoHeight; ctx.drawImage(video, 0, 0); const dataURL = canvas.toDataURL('image/jpeg', 0.8); const file = new File([dataURL], `consultation-${Date.now()}.jpg`, { type: 'image/jpeg' }); onCapture(file, dataURL); } };
-  const handleClose = () => { stopCamera(); onClose(); };
-  if (error) { return (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50"><div className="bg-gray-800 p-6 rounded-2xl max-w-sm mx-4 border border-gray-700"><h3 className="text-lg font-semibold mb-4 text-white">Camera Error</h3><p className="text-red-400 mb-4">{error}</p><button onClick={handleClose} className="w-full px-4 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors">Close</button></div></div>); }
-  return (<div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50"><div className="relative w-full h-full max-w-4xl mx-4 bg-gray-900 rounded-2xl overflow-hidden border border-gray-700"><div className="absolute top-4 left-4 right-4 flex justify-between items-center z-10"><button onClick={handleClose} className="p-3 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"><X className="w-5 h-5" /></button><h3 className="text-white font-semibold text-lg">Capture Consultation Paper</h3><div className="w-11"></div></div><video ref={videoRef} className="w-full h-full object-cover" playsInline muted/>{isLoading && (<div className="absolute inset-0 bg-black/50 flex items-center justify-center"><div className="text-white text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400 mx-auto mb-2"></div><p>Initializing camera...</p></div></div>)}{<div className="absolute bottom-8 left-1/2 transform -translate-x-1/2"><button onClick={captureImage} disabled={isProcessing || isLoading} className="w-16 h-16 bg-emerald-500 rounded-full border-4 border-white hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center shadow-2xl transition-colors">{isProcessing ? (<div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>) : (<Camera className="w-6 h-6 text-white" />)}</button></div>}<div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 text-center"><p className="text-white text-sm bg-black/50 px-4 py-2 rounded-xl backdrop-blur-sm">Position the document in the frame</p></div><canvas ref={canvasRef} style={{ display: 'none' }} /></div></div>);
-};
-
-// --- MAIN DASHBOARD COMPONENT ---
-export default function DoctorAdminDashboard() {
-  const [isVisible, setIsVisible] = useState(false);
-  const [processingState, setProcessingState] = useState<ProcessingState>({ isProcessing: false, error: null, progress: 0, message: '' });
-  const [showCamera, setShowCamera] = useState(false);
-  const [records, setRecords] = useState<ConsultationRecord[]>([]);
-  const [selectedRecord, setSelectedRecord] = useState<ConsultationRecord | null>(null);
-  const [showRecordModal, setShowRecordModal] = useState(false);
-  const [sendModalState, setSendModalState] = useState<SendModalState>({ isOpen: false, record: null, patientEmail: '', emailBody: '', isSending: false });
-  const [editableSummary, setEditableSummary] = useState('');
-  const [isPolishing, setIsPolishing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => { setIsVisible(true); }, []);
-  useEffect(() => { if (showRecordModal && selectedRecord?.formattedData?.summaryNotes) { setEditableSummary(selectedRecord.formattedData.summaryNotes); } else { setEditableSummary(''); } }, [showRecordModal, selectedRecord]);
-
-  const processRecord = async (file: File, imageUrl: string | null = null) => {
-    const validation = validateImageFile(file);
-    if (!validation.isValid) { setProcessingState({ isProcessing: false, error: validation.error, progress: 0, message: '' }); return; }
-    setProcessingState({ isProcessing: true, error: null, progress: 10, message: 'Preparing document...' });
-    const recordId = `REC-${Date.now()}`;
-    try {
-      const base64 = imageUrl || await convertFileToBase64(file);
-      const newRecord: ConsultationRecord = { id: recordId, documentTitle: "Processing...", recordType: file.type, uploadDate: new Date().toLocaleString(), status: 'processing', imageUrl: base64 };
-      setRecords(prev => [newRecord, ...prev]);
-
-      setProcessingState(prev => ({ ...prev, progress: 40, message: 'Extracting text from document...' }));
-      const extractedText = await ApiClient.extractText(base64);
-
-      setProcessingState(prev => ({ ...prev, progress: 80, message: 'AI is processing the consultation...' }));
-      const formattedData = await ApiClient.processConsultation(extractedText);
-
-      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'completed', documentTitle: `Consultation by ${formattedData.doctorName || 'Unknown'}`, originalText: extractedText, formattedData } : r));
-      setProcessingState({ isProcessing: false, error: null, progress: 0, message: '' });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unknown AI error occurred.";
-      setProcessingState({ isProcessing: false, error: errorMessage, progress: 0, message: '' });
-      setRecords(prev => prev.map(r => r.id === recordId ? { ...r, status: 'error', documentTitle: 'Processing Failed', errorMessage: errorMessage } : r));
-    }
-  };
-
-  const handlePolishSummary = async () => {
-    if (!editableSummary) return;
-    setIsPolishing(true);
-    try {
-      const { polishedText } = await ApiClient.polishSummary(editableSummary);
-      setEditableSummary(polishedText);
-    } catch (error) { console.error("Failed to polish summary:", error); }
-    finally { setIsPolishing(false); }
-  };
-
-  const openSendModal = () => {
-    if (!selectedRecord || !selectedRecord.formattedData) return;
-    const { doctorName, consultationItems } = selectedRecord.formattedData;
-    const totalFee = consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0);
-    let emailBody = `Dear Patient,\n\nPlease find the summary of your recent consultation with ${doctorName || 'our clinic'}.\n\n--- Consultation Summary ---\n${editableSummary}\n\n--- Prescriptions & Advice ---\n`;
-    consultationItems.forEach(item => { if (item.enrichedInfo) { emailBody += `* ${item.enrichedInfo.correctedName}: ${item.enrichedInfo.advice}\n`; } });
-    emailBody += `\n--- Billing Details ---\n`;
-    consultationItems.forEach(item => { if (item.fee != null && item.fee > 0) { emailBody += `- ${item.labWork}: ${item.fee.toLocaleString()} XAF\n`; } });
-    emailBody += `\nTotal Amount Due: ${totalFee.toLocaleString()} XAF\n\nIf you have any questions, please do not hesitate to contact us.\n\nThank you,\n${doctorName || 'The Clinic'}`;
-    setSendModalState({ isOpen: true, record: selectedRecord, patientEmail: selectedRecord.formattedData.patientEmail || '', emailBody: emailBody, isSending: false });
-  };
-
-  const handleSendEmail = async () => {
-    if (!sendModalState.record || !sendModalState.patientEmail) return;
-    setSendModalState(prev => ({ ...prev, isSending: true }));
-    const dataForServerAction = {
-      user_id: null,
-      doctor_name: sendModalState.record.formattedData?.doctorName,
-      patient_email: sendModalState.patientEmail,
-      patient_phone_number: sendModalState.record.formattedData?.patientPhoneNumber,
-      complaint: sendModalState.record.formattedData?.complaint,
-      consultation_items: sendModalState.record.formattedData?.consultationItems,
-      summary_notes: editableSummary,
-      total_fee: sendModalState.record.formattedData?.consultationItems.reduce((acc, item) => acc + (item.fee || 0), 0)
-    };
-    console.log("--- DATA READY FOR SUPABASE SERVER ACTION (insert into 'consultations') ---");
-    console.log(JSON.stringify(dataForServerAction, null, 2));
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setSendModalState({ isOpen: false, record: null, patientEmail: '', emailBody: '', isSending: false });
-    setShowRecordModal(false);
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { processRecord(file); } if (e.target) { e.target.value = ''; } };
-  const viewRecord = (record: ConsultationRecord) => { setSelectedRecord(record); setShowRecordModal(true); };
-  const deleteRecord = (id: string) => setRecords(prev => prev.filter(r => r.id !== id));
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white relative overflow-hidden">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none"><div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl animate-pulse"></div><div className="absolute -bottom-40 -left-40 w-96 h-96 bg-green-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div><Stethoscope className="absolute top-20 left-10 w-4 h-4 text-emerald-400/20 animate-bounce" /><Heart className="absolute bottom-40 left-8 w-4 h-4 text-teal-400/20 animate-bounce delay-1000" /></div>
-        <div className="relative z-10 px-4 sm:px-6 lg:px-8 pt-8 pb-16">
-            <div className="max-w-6xl mx-auto">
-                <div className={`mb-8 transition-all duration-1000 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}><div className="flex items-center justify-between mb-6"><div><div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500/20 to-green-500/20 rounded-full border border-emerald-500/30 backdrop-blur-sm mb-4"><div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div><span className="text-emerald-400 font-medium text-sm">AI-Powered Health Dashboard</span></div><h1 className="text-3xl sm:text-4xl font-bold mb-2">Consultation<span className="block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent">Processor</span></h1><p className="text-gray-300 text-lg">Upload patient consultation papers for automated processing.</p></div><div className="hidden sm:flex items-center gap-4"><div className="text-right"><p className="text-sm text-gray-400">Dr. Sarah Johnson</p><p className="text-xs text-emerald-400">Cardiology Dept.</p></div><div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center"><User className="w-5 h-5 text-white" /></div></div></div></div>
-                <div className={`mb-8 transition-all duration-1000 delay-300 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}><div className="bg-gradient-to-r from-gray-800/50 to-slate-800/50 backdrop-blur-xl rounded-3xl p-8 border border-gray-700/50 shadow-2xl"><h2 className="text-2xl font-bold mb-6 text-center">Upload Consultation Paper</h2><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><button onClick={() => fileInputRef.current?.click()} disabled={processingState.isProcessing} className="group relative flex flex-col items-center gap-4 p-8 bg-gradient-to-br from-gray-700/50 to-slate-700/50 rounded-2xl border-2 border-dashed border-gray-600 hover:border-emerald-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"><div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><Upload className="w-8 h-8 text-white" /></div><div className="text-center"><h3 className="text-lg font-semibold mb-2">Upload File</h3><p className="text-gray-400 text-sm">Select image or PDF</p></div></button><button onClick={() => setShowCamera(true)} disabled={processingState.isProcessing} className="group relative flex flex-col items-center gap-4 p-8 bg-gradient-to-br from-gray-700/50 to-slate-700/50 rounded-2xl border-2 border-dashed border-gray-600 hover:border-emerald-500/50 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105"><div className="w-16 h-16 bg-gradient-to-br from-green-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform"><Camera className="w-8 h-8 text-white" /></div><div className="text-center"><h3 className="text-lg font-semibold mb-2">Take Photo</h3><p className="text-gray-400 text-sm">Use device camera</p></div></button></div>{processingState.isProcessing && (<div className="bg-gradient-to-r from-gray-700/50 to-slate-700/50 rounded-2xl p-6 border border-gray-600/50"><div className="flex items-center gap-4 mb-4"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div><div><h3 className="font-semibold">{processingState.message}</h3><p className="text-gray-400 text-sm">AI is working its magic...</p></div></div><div className="w-full bg-gray-700 rounded-full h-2"><div className="bg-gradient-to-r from-emerald-500 to-green-600 h-2 rounded-full transition-all duration-300" style={{ width: `${processingState.progress}%` }}></div></div><p className="text-right text-sm text-gray-400 mt-2">{processingState.progress}%</p></div>)}{processingState.error && (<div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3"><AlertCircle className="w-5 h-5 text-red-400" /><p className="text-red-400">{processingState.error}</p><button onClick={() => setProcessingState(p => ({ ...p, error: null }))} className="ml-auto text-red-400 hover:text-red-300"><X className="w-4 h-4" /></button></div>)}</div></div>
-                {records.length > 0 && (<div className={`transition-all duration-1000 delay-500 ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}><h2 className="text-2xl font-bold mb-6">Recent Consultations</h2><div className="grid gap-4">{records.map((record) => (<div key={record.id} className="bg-gradient-to-r from-gray-800/50 to-slate-800/50 backdrop-blur-xl rounded-2xl p-6 border border-gray-700/50 hover:border-emerald-500/50 transition-all duration-300"><div className="flex flex-wrap items-center justify-between gap-4"><div className="flex items-center gap-4"><div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0"><FileText className="w-6 h-6 text-white" /></div><div><h3 className="font-semibold text-lg">{record.documentTitle}</h3><p className="text-gray-400 text-sm">{record.recordType}</p><div className="flex items-center gap-2 text-xs text-gray-500 mt-1"><Clock className="w-3 h-3" />{record.uploadDate}</div></div></div><div className="flex items-center gap-3"><div className={`px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5 ${record.status === 'completed' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : record.status === 'processing' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>{record.status === 'completed' ? <CheckCircle className="w-3 h-3" /> : record.status === 'error' ? <AlertCircle className="w-3 h-3" /> : <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-yellow-400"></div>}{record.status}</div><div className="flex gap-2"><button onClick={() => viewRecord(record)} className="p-2 bg-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/30 transition-colors" title="View Details"><Eye className="w-4 h-4" /></button><button onClick={() => deleteRecord(record.id)} className="p-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button></div></div></div></div>))}</div></div>)}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-black text-white">
+      <div className="absolute inset-0 overflow-hidden -z-10">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-green-500/5 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 pt-8 pb-16">
+        <div className="max-w-6xl mx-auto">
+          <DashboardHeader
+            coverImage={coverImage}
+            userName={userData.full_name?.split(" ")[0]}
+          />
+
+          <UserProfileCard userData={userData} clerkUser={clerkUser} />
+
+          <InfoCards userData={userData} />
+
+          {hospitalsLoading ? (
+            <div className="mb-8 p-8 bg-gradient-to-br from-gray-800/60 to-slate-800/60 backdrop-blur-xl rounded-2xl border border-gray-700/50">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+                <span className="ml-3 text-gray-300">Loading hospitals...</span>
+              </div>
             </div>
+          ) : (
+            <RecommendedHospitals
+              hospitals={recommendedHospitals}
+              allHospitals={hospitals}
+            />
+          )}
+
+          <QuickActions />
+
         </div>
         <input ref={fileInputRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={handleFileSelect} disabled={processingState.isProcessing}/>
         {showCamera && (<CameraCapture onCapture={processRecord} onClose={() => setShowCamera(false)} isProcessing={processingState.isProcessing}/>)}
